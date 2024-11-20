@@ -1,0 +1,5 @@
+/node_modules
+# bỏ qua tất cả ở trong node_modules vì người khác viết có thể cài lại
+# không cần lưu trên mạng Github
+
+
