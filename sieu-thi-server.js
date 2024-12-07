@@ -59,6 +59,43 @@ connection.connect(err => {
   console.log('Server đã kết nối MySQL được ['+thoiGian+']');
 });
 
+sieuThiRoutes.route('/SignIn').post(async function(req, res) {
+  var thongTinSignIn = req.body
+  console.log('SignIn user: ', thongTinSignIn.username)
+  console.log('SignIn pass: ', thongTinSignIn.password)
+  try {
+    var [ketQua] = await connection.promise().query(
+      `SELECT taikhoan.id as idTK, username, password
+      FROM sieuthi.taikhoan
+      where username = '`+thongTinSignIn.username+`' and password = '`+thongTinSignIn.password+`';`
+    )
+    console.log('ketQua: ', ketQua)
+  }
+  catch(err){
+    console.log('Server không nói chuyện được với Databas: ', err)
+    throw new Error('Server không nói chuyện được với Databas', {cause: 503})
+  }
+    res.json(ketQua);
+})
+sieuThiRoutes.route('/SignUp').post(async function(req, res) {
+  var thongTinSignUp = req.body
+  console.log('SignUp user: ', thongTinSignUp.username)
+  console.log('SignUp pass: ', thongTinSignUp.password)
+  try {
+    var [ketQua] = await connection.promise().query(
+      `INSERT INTO sieuthi.taikhoan (username, password) 
+      VALUES  ('`+thongTinSignUp.username+`', `+thongTinSignUp.password+`)`
+    )
+    console.log('ketQua: ', ketQua)
+    return 'Tạo tài khoản thành công rồi, xin mời Đăng Nhập / Sign In'
+  }
+  catch(err){
+    console.log('Server không nói chuyện được với Databas: ', err)
+    throw new Error('Server không nói chuyện được với Databas', {cause: 503})
+  }
+})
+
+
 sieuThiRoutes.route('/chaoHoi').post(async function(req, res) {
   var homNay = new Date();
   var thoiGian = homNay.getHours() + ":" + homNay.getMinutes() + ":" + homNay.getSeconds();
