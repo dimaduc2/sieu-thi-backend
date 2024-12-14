@@ -2,6 +2,7 @@
 
 const express = require('express');           //phải mượn Express
 const sieuThiRoutes = express.Router();     //tạo Router để nhận tất cả câu hỏi
+const bcrypt = require("bcrypt")              // mượn để làm mật khẩu an toàn hơn
 const app = express();
 app.use(express.json())
 
@@ -63,38 +64,79 @@ sieuThiRoutes.route('/SignIn').post(async function(req, res) {
   var thongTinSignIn = req.body
   console.log('SignIn user: ', thongTinSignIn.username)
   console.log('SignIn pass: ', thongTinSignIn.password)
+  
+  
+
   try {
-    var [ketQua] = await connection.promise().query(
-      `SELECT taikhoan.id as idTK, username, password
+    var [ketQuaName] = await connection.promise().query(
+      `SELECT *
       FROM sieuthi.taikhoan
-      where username = '`+thongTinSignIn.username+`' and password = '`+thongTinSignIn.password+`';`
+      where username = '`+thongTinSignIn.username+`';`
     )
-    console.log('ketQua: ', ketQua)
+    console.log('ketQuaName: ', ketQuaName) // tìm tên trong tài khoản
+
+    if(ketQuaName.length===0){
+      console.log('Lỗi: Chưa có tên ', thongTinSignIn.username, {cause: 401})
+      throw new Error('Lỗi: Chưa có tên ', thongTinSignIn.username, {cause: 401})
+    }else{
+      var soSanhPass = await bcrypt.compare(String(thongTinSignIn.password), ketQuaName[0].password)
+      if(
+        soSanhPass===true
+        // thongTinSignIn.password === ketQuaName[0].password
+      ){
+        res.json(ketQuaName);
+      }else{
+        console.log('Lỗi: Sai Password', {cause: 401})
+        throw new Error('Lỗi: Sai Password', {cause: 401})
+      }
+    }
   }
   catch(err){
     console.log('Server không nói chuyện được với Databas: ', err)
-    throw new Error('Server không nói chuyện được với Databas', {cause: 503})
+    // throw new Error('Server không nói chuyện được với Databas', {cause: 503})
+    res
+      .status(err.cause)
+      .send({thongBao: err.message})
   }
-    res.json(ketQua);
 })
 sieuThiRoutes.route('/SignUp').post(async function(req, res) {
   var thongTinSignUp = req.body
   console.log('SignUp user: ', thongTinSignUp.username)
   console.log('SignUp pass: ', thongTinSignUp.password)
+
   try {
-    var [ketQua] = await connection.promise().query(
-      `INSERT INTO sieuthi.taikhoan (username, password) 
-      VALUES  ('`+thongTinSignUp.username+`', `+thongTinSignUp.password+`)`
+    var [ketQuaKT] = await connection.promise().query(
+      `SELECT taikhoan.id as idTK, username, password
+      FROM sieuthi.taikhoan
+      where username = '`+thongTinSignUp.username+`';`
     )
-    console.log('ketQua: ', ketQua)
-    return 'Tạo tài khoản thành công rồi, xin mời Đăng Nhập / Sign In'
+
+    var passDaMaHoa = await bcrypt.hash(thongTinSignUp.password,10);
+    if(ketQuaKT.length===0){
+      var [ketQua] = await connection.promise().query(
+        `INSERT INTO sieuthi.taikhoan (username, password) 
+        VALUES  ('`+thongTinSignUp.username+`', '`+passDaMaHoa+`')`
+      )
+      console.log('ketQua: ', ketQua)
+      console.log('Tạo tài khoản thành công rồi, xin mời Đăng Nhập / Sign In.')
+      res.json('Tạo tài khoản thành công rồi, xin mời Đăng Nhập / Sign In.');
+    }else{
+      console.log('Lỗi: Username này có người khác dùng rồi, xin chọn tên khác.')
+      // res.json('Lỗi: Username này có người khác dùng rồi, xin chọn tên khác.');
+      throw new Error('Lỗi: Username này có người khác dùng rồi, xin chọn tên khác.', {cause: 401})
+      
+    }
+
+
+
   }
-  catch(err){
-    console.log('Server không nói chuyện được với Databas: ', err)
-    throw new Error('Server không nói chuyện được với Databas', {cause: 503})
+  catch(err) {
+    console.log('ABC: ', err)
+    res
+      .status(err.cause)
+      .send({thongBao: err.message})
   }
 })
-
 
 sieuThiRoutes.route('/chaoHoi').post(async function(req, res) {
   var homNay = new Date();
