@@ -114,8 +114,8 @@ sieuThiRoutes.route('/SignUp').post(async function(req, res) {
     var passDaMaHoa = await bcrypt.hash(thongTinSignUp.password,10);
     if(ketQuaKT.length===0){
       var [ketQua] = await connection.promise().query(
-        `INSERT INTO sieuthi.taikhoan (username, password) 
-        VALUES  ('`+thongTinSignUp.username+`', '`+passDaMaHoa+`')`
+        `INSERT INTO sieuthi.taikhoan (username, password, nhom) 
+        VALUES  ('`+thongTinSignUp.username+`', '`+passDaMaHoa+`', `+thongTinSignUp.nhom+`)`
       )
       console.log('ketQua: ', ketQua)
       console.log('Tạo tài khoản thành công rồi, xin mời Đăng Nhập / Sign In.')
@@ -124,11 +124,7 @@ sieuThiRoutes.route('/SignUp').post(async function(req, res) {
       console.log('Lỗi: Username này có người khác dùng rồi, xin chọn tên khác.')
       // res.json('Lỗi: Username này có người khác dùng rồi, xin chọn tên khác.');
       throw new Error('Lỗi: Username này có người khác dùng rồi, xin chọn tên khác.', {cause: 401})
-      
     }
-
-
-
   }
   catch(err) {
     console.log('ABC: ', err)
@@ -136,6 +132,12 @@ sieuThiRoutes.route('/SignUp').post(async function(req, res) {
       .status(err.cause)
       .send({thongBao: err.message})
   }
+})
+
+sieuThiRoutes.route('/SuaAnh').put(async function(req, res) {
+  var suaAnh = req.body
+  await connection.promise().query(`UPDATE taikhoan SET anh='`+suaAnh.tenAnh+`' WHERE id = `+suaAnh.id+`;`)
+  res.send(suaAnh.tenAnh)
 })
 
 sieuThiRoutes.route('/chaoHoi').post(async function(req, res) {
@@ -188,11 +190,14 @@ sieuThiRoutes.route('/SanPham').get(async function(req, res) {
 })
 
 sieuThiRoutes.route('/thanhToan').post(async function(req, res) {
-  console.log('danhSachGioHang: ', req.body)
+  idUser = req.query.idUser
+  console.log('idUser: ', idUser)
+  // console.log('danhSachGioHang: ', req.body)
   var khoBanDau = []
+  
   try {
     const [rows, fields] = await connection.promise().query('SELECT * FROM sieuthi.sanpham');
-    console.log('Kho bây giờ: ', rows);
+    // console.log('Kho bây giờ: ', rows);
     khoBanDau = rows
   }
   catch (error) {
@@ -211,12 +216,13 @@ sieuThiRoutes.route('/thanhToan').post(async function(req, res) {
   var doDaiDieuKienID = ''
   var muaDuocKhong = false
   var viTri = ''
-  for(var i=0; i<danhSachGioHang.length-1; i++){
-    console.log('i:', i)
-    for(var j=0; j<=khoBanDau.length-1; j++){
+  
+  console.log('danhSachGioHang', danhSachGioHang)
+  console.log('khoBanDau', khoBanDau)
 
-    
-    
+
+  for(var i=0; i<danhSachGioHang.length; i++){
+    for(var j=0; j<khoBanDau.length; j++){
       //có vấn đề x
       // Nấu lấy sữa trước thì trong danhSachGioHang có sữa trước và khoBanDau vẫn thịt trước
 
@@ -226,7 +232,10 @@ sieuThiRoutes.route('/thanhToan').post(async function(req, res) {
 
         doDaiDieuKien += `\n WHEN id=`+danhSachGioHang[i].id+` THEN `+(danhSachGioHang[i].SoLuongTrongKho - danhSachGioHang[i].soLuongTrongGio)
         doDaiDieuKienID += danhSachGioHang[i].id+', '
-        
+
+        console.log('SoLuongTrongKho', danhSachGioHang[i].SoLuongTrongKho)
+        console.log('soLuongTrongGio', danhSachGioHang[i].soLuongTrongGio)
+
         if(danhSachGioHang[i].SoLuongTrongKho - danhSachGioHang[i].soLuongTrongGio < 0){
           console.log('Trong kho không đủ, chỉ còn lại', danhSachGioHang[i].SoLuongTrongKho + ' ' + danhSachGioHang[i].Ten)
           muaDuocKhong = false
@@ -240,8 +249,6 @@ sieuThiRoutes.route('/thanhToan').post(async function(req, res) {
         }
         break
       }
-
-    
     }
   }
   doDaiDieuKien+= ` \n WHEN id=`+danhSachGioHang[danhSachGioHang.length-1].id+` THEN `+(danhSachGioHang[danhSachGioHang.length-1].SoLuongTrongKho - danhSachGioHang[danhSachGioHang.length-1].soLuongTrongGio)
@@ -250,14 +257,9 @@ sieuThiRoutes.route('/thanhToan').post(async function(req, res) {
   console.log('doDaiDieuKien: ', doDaiDieuKien)
   console.log('doDaiDieuKienID: ', doDaiDieuKienID)
 
-  // var thongBaoLoi = [
-  //   danhSachGioHang[viTri].id,
-  //   danhSachGioHang[viTri].SoLuongTrongKho,
-  //   'Trong kho không đủ, chỉ còn lại ' + danhSachGioHang[viTri].SoLuongTrongKho + ' ' + danhSachGioHang[viTri].Ten
-  // ]
-
+  console.log('muaDuocKhong: ', muaDuocKhong)
   if(muaDuocKhong === false){
-    // console.log('viTri: ', viTri)
+    console.log('viTri: ', viTri)
     var thongBaoLoi = {
       id: danhSachGioHang[viTri].id,
       soLuongConLai: danhSachGioHang[viTri].SoLuongTrongKho,
@@ -267,14 +269,32 @@ sieuThiRoutes.route('/thanhToan').post(async function(req, res) {
     // console.log('thongBaoLoi: ', muaDuocKhong)
   }else if(muaDuocKhong === true){
     // console.log('thongBaoThanhCong: ', muaDuocKhong)
-    connection.query(
-      `UPDATE sieuthi.sanpham
-      SET SoLuongTrongKho = CASE `+
-      doDaiDieuKien+`
-      ELSE SoLuongTrongKho
-      END
-      WHERE id IN (`+doDaiDieuKienID+`);`
-    )
-    res.send('Đã mua hàng.')
+
+    const insertQuery = `INSERT INTO sieuthi.donhang (IdNguoiMua, IdSanPham, NgayThang) VALUES (`+idUser+`, 2, '2024-12-29 15:00:00');`
+    
+    const updateQuery = `UPDATE sieuthi.sanpham SET SoLuongTrongKho = CASE `+doDaiDieuKien+` ELSE SoLuongTrongKho END WHERE id IN (`+doDaiDieuKienID+`);`
+      
+    connection.query(insertQuery, (err, ketQua) => {
+      
+      if(err) {
+        console.error('Lỗi khi thực hiện query INSERT INTO:', err);
+        res.status(503).send('Lỗi khi thực hiện query INSERT INTO');
+        return
+      }
+
+      console.log(ketQua)
+
+      connection.query(updateQuery, (err, ketQua) => {
+        if (err) {
+          console.error('Lỗi khi thực hiện query UPDATE:', err);
+          res.status(503).send('Lỗi khi thực hiện query UPDATE');
+          return
+        }
+        console.log(ketQua)
+        // console.log('idUser ', idUser)
+        res.send('Đã mua hàng.')
+      });
+    })
+    // res.send('Đã mua hàng.')
   }
 })
